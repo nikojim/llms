@@ -40,7 +40,7 @@ En este apartado se presentan y explican los diagramas correspondientes a las di
 
 Se describe la fase de vectorización del contexto.
 
-![Fase I](Documentos/diagramas/fase1.drawio.png)
+![Fase I](docs/images/fase1.drawio.png)
 
 En la Fase I se dividen los documentos del contexto proporcionado en chunks de un largo determinado. Luego mediante embeddings se vectorizan los chunks y se almacenan en la base de datos vectorial FAISS. De esta manera se facilita la búsqueda por similitud con las preguntas realizadas en el prompt.
 
@@ -48,26 +48,26 @@ En la Fase I se dividen los documentos del contexto proporcionado en chunks de u
 
 Se describe la fase de tuning y entrenamiento a partir de casos del RT.
 
-![Fase II](Documentos/diagramas/fase2.drawio.png)
+![Fase II](docs/images/fase2.drawio.png)
 En la fase II se obtienen documentos Json, mediante consultas sql a la base de datos del RT, para luego entrenar al modelo con los resultados obtenidos. Además se realiza un fine tuning en la parametrización del modelo para generar respuestas más performantes. Luego de estas tareas se guarda el modelo entrenado y parametrizado para luego ser utilizado al ejecutar el prompt.
 
 ### Fase III - Carga del modelo entrenado
 
 Luego de haber entrenado, tuneado y guardado el modelo, antes de comenzar a trabajar con el prompt se carga el modelo entrenado y tuneado.
 
-![Fase III](Documentos/diagramas/fase3.drawio.png)
+![Fase III](docs/images/fase3.drawio.png)
 
 ### Fase IV - Carga de historial en sesión
 
 En esta fase antes de comenzar a operar con el prompt se obtiene desde una base de datos SQLite el historial de consultas realizadas al modelo y se carga en la sesión del prompt. En el caso de repetirse alguna consulta, esta se toma del historial y no pasa por el modelo, de esta manera se optimiza la respuesta en casos de consultas ya realizadas con anterioridad.
 
-![Fase IV](Documentos/diagramas/fase4.drawio.png)
+![Fase IV](docs/images/fase4.drawio.png)
 
 ### Fase V - Prompt
 
 Se describe la ejecución del prompt sobre el contexto determinado.
 
-![Fase V](Documentos/diagramas/fase5.drawio.png)
+![Fase V](docs/images/fase5.drawio.png)
 
 En esta fase mediante Gradio o Streamlit se genera una interfaz web para la interacción con el usuario. En primer lugar el usuario escribe una consulta en el panel de input de la interfaz, se hace una búsqueda en el historial de la sesión y si la consulta ya a sido realizada se brinda la respuesta dada, si no se pasa al siguiente paso. Si la consulta no está en el historial se tokeniza y se vectoriza mediante embeddings. Luego se hace una query por similitud sobre la base de datos vectorial donde están almacenados los chunks del contexto y se obtienen los 5 chunks con mayor similitud. Se le pasa la consulta y los chunks obtenidos del contexto al modelo para que elabore la respuesta más adecuada. Se brinda la respuesta al usuario y se almacena la consulta y la respuesta en el historial de la sesión.
 
