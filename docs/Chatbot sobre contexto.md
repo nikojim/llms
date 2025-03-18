@@ -40,7 +40,7 @@ En este apartado se presentan y explican los diagramas correspondientes a las di
 
 Se describe la fase de vectorización del contexto.
 
-![Fase I](llms/docs/images/fase1.drawio.png)
+![Fase I](images/fase1.drawio.png)
 
 En la Fase I se dividen los documentos del contexto proporcionado en chunks de un largo determinado. Luego mediante embeddings se vectorizan los chunks y se almacenan en la base de datos vectorial FAISS. De esta manera se facilita la búsqueda por similitud con las preguntas realizadas en el prompt.
 
