@@ -5,7 +5,7 @@ Paso links a continuación de cursos **udemy** que están buenos.
 ## Python for Data Science and Machine Learning Bootcamp
 Si te interesa ver cómo funciona pyhton para Data Science y el uso de las principales librerías como numpy, pandas, matplotlib etc., recomiendo este curso.
 
-https://www.udemy.com/share/101Wjc3@Ttgg7gYnZjZZbCoTkyNhnYTuQ6HrpKZOQj8WtBHyf-Sv5BPzO1qylUXtv76i_7TrqA==/
+https://www.udemy.com/share/101WaU3@RQrm6QpQSUJBG05GdQPnZqMnhEaHEpOUIz7ROg9iEaXpg0VA2T0sIXwcfTY2Nyprvg==/
 
  ## Master Langchain and Ollama - Chatbot, RAG and Agents
 Este curso está bueno para entender qué son y cómo funcionan los LLMs mediante el uso de modelos locales como Ollama. Presenta ejemplos de cómo hacer un chatbot.
