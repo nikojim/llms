@@ -1,41 +1,31 @@
-Here is the **final updated guide** for serving a **Q4 GGUF Mistral model** using `llama.cpp` on an **Ubuntu server**, with:
-
-* ✅ OpenBLAS optimization via CMake
-* ✅ `llama-server` for HTTP API
-* ✅ Secure HTTPS via Nginx + Certbot
-* ✅ Optional JWT wrapper
-* ✅ `systemd` integration
-* ✅ Model download and renaming using `aria2c`
+# 🧠 Final Full Guide: Serve Mistral Q4 GGUF with OpenAI-Compatible API via `llama-cpp-python` + `llama.cpp` Build (Ubuntu)
 
 ---
 
-# 🧠 Serve Mistral Q4 GGUF with `llama.cpp`, OpenBLAS, HTTPS, systemd, and LangChain Support
-
----
-
-## ✅ Step 1: Install Dependencies
+## ✅ Step 1: Install Required System Dependencies
 
 ```bash
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y \
   git \
-  cmake \
   build-essential \
+  cmake \
   libopenblas-dev \
-  libcurl4-openssl-dev \
+  python3-pip \
+  python3-venv \
   aria2 \
-  tmux \
   nginx \
   certbot \
   python3-certbot-nginx \
-  python3-pip
+  tmux
 ```
 
 ---
 
-## 🧱 Step 2: Clone and Build `llama.cpp` with CMake + OpenBLAS
+## 🧱 Step 2: Clone and Build `llama.cpp` with OpenBLAS
 
 ```bash
+cd ~
 git clone https://github.com/ggerganov/llama.cpp.git
 cd llama.cpp
 mkdir build && cd build
@@ -49,11 +39,32 @@ cmake .. \
 cmake --build . --config Release
 ```
 
-> 🔧 Binaries will be available in `llama.cpp/build/bin/`
+> ✅ This builds optimized C++ binaries with BLAS for CPU performance.
+> Optional if you want to run via CLI, benchmarking, or raw `llama-server`.
 
 ---
 
-## 📦 Step 3: Download and Rename Mistral Model with `aria2c`
+## 🐍 Step 3: Create and Activate Python Virtual Environment
+
+```bash
+python3 -m venv ~/llama-env
+source ~/llama-env/bin/activate
+```
+
+---
+
+## 🧩 Step 4: Install `llama-cpp-python` with OpenBLAS & Server Support
+
+```bash
+pip install --upgrade pip
+
+CMAKE_ARGS="-DLLAMA_BLAS=ON -DLLAMA_BLAS_VENDOR=OpenBLAS" \
+pip install llama-cpp-python[server]
+```
+
+---
+
+## 📦 Step 5: Download and Rename Mistral Q4 GGUF Model
 
 ```bash
 mkdir -p ~/models/mistral-gguf
@@ -64,72 +75,63 @@ aria2c -x 16 -s 16 \
   https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q4_K_M.gguf
 ```
 
-> ✅ This downloads the model and renames it to `mistral-q4.gguf`
-
 ---
 
-## 🚀 Step 4: Serve the Model
+## 🚀 Step 6: Serve Model with OpenAI-Compatible API (via Python)
 
 ```bash
-cd ~/llama.cpp/build/bin
+source ~/llama-env/bin/activate
 
-./llama-server \
+python -m llama_cpp.server \
   --model ~/models/mistral-gguf/mistral-q4.gguf \
   --host 0.0.0.0 \
-  --port 8080 \
-  --ctx-size 4096 \
-  --threads $(nproc) \
-  --mlock
+  --port 8000 \
+  --n_ctx 4096 \
+  --n_threads $(nproc)
 ```
-
-> ⚠️ No `--blas` flag needed — it's already active via CMake if compiled correctly.
 
 ---
 
-## 🧪 Step 5: Test the API
+## 🧪 Step 7: Test the Server with `curl`
 
 ```bash
-curl -X POST http://localhost:8080/completion \
+curl http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "What is a neural network?", "n_predict": 64}'
+  -d '{
+    "model": "mistral",
+    "messages": [{"role": "user", "content": "What is quantum computing?"}],
+    "temperature": 0.7
+  }'
 ```
 
 ---
 
-## 🧩 Option 1: Use with LangChain or Local RAG
-
-Install LangChain:
+## 🧠 Step 8: Use with `ChatOpenAI` from LangChain
 
 ```bash
-pip install langchain openai requests
-```
+pip install langchain openai
 
-Example script:
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage
 
-```python
-from langchain.llms import LlamaCpp
-llm = LlamaCpp(
-    model_path="~/models/mistral-gguf/mistral-q4.gguf",
-    n_ctx=4096,
-    n_threads=8,
-    temperature=0.7,
-    use_mlock=True
+llm = ChatOpenAI(
+    base_url="http://localhost:8000/v1",  # or your public HTTPS endpoint
+    api_key="not-needed",                 # required by class, not used here
+    model="mistral"
 )
-print(llm("Explain transformers in AI."))
-```
 
-> ✅ You can also call the HTTP API using `requests` if needed.
+response = llm([HumanMessage(content="Summarize the theory of evolution.")])
+print(response.content)
+```
 
 ---
 
-## 🔐 Option 2: Secure API with HTTPS and JWT
+## 🔐 Step 9 (Optional): Secure with Nginx + HTTPS
 
-### A. Nginx + Certbot HTTPS
-
-1. Create Nginx config:
+### A. Create Reverse Proxy
 
 ```bash
-sudo nano /etc/nginx/sites-available/llm
+sudo nano /etc/nginx/sites-available/mistral
 ```
 
 ```nginx
@@ -138,85 +140,79 @@ server {
     server_name llm.example.com;
 
     location / {
-        proxy_pass http://localhost:8080;
+        proxy_pass http://localhost:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
 }
 ```
 
-2. Enable and test:
+Enable and reload:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/llm /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/mistral /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-3. Add HTTPS with Certbot:
+### B. Add HTTPS
 
 ```bash
 sudo certbot --nginx -d llm.example.com
 ```
 
-### B. Add JWT Auth (optional)
-
-Set up a reverse proxy using **FastAPI** or **Flask** that checks a JWT token before forwarding to `llama-server`. Let me know if you want this template.
-
 ---
 
-## ⚙️ Option 3: Run `llama-server` as a `systemd` Service
-
-### A. Create systemd unit:
+## ⚙️ Step 10 (Optional): Create a `systemd` Service
 
 ```bash
-sudo nano /etc/systemd/system/llama-server.service
+sudo nano /etc/systemd/system/mistral.service
 ```
 
 ```ini
 [Unit]
-Description=Llama.cpp Mistral Server
+Description=Mistral GGUF Server (llama-cpp-python)
 After=network.target
 
 [Service]
 User=ubuntu
-ExecStart=/home/ubuntu/llama.cpp/build/bin/llama-server \
+WorkingDirectory=/home/ubuntu
+ExecStart=/home/ubuntu/llama-env/bin/python -m llama_cpp.server \
   --model /home/ubuntu/models/mistral-gguf/mistral-q4.gguf \
   --host 0.0.0.0 \
-  --port 8080 \
-  --ctx-size 4096 \
-  --threads $(nproc) \
-  --mlock
+  --port 8000 \
+  --n_ctx 4096 \
+  --n_threads 4
 Restart=always
-LimitMEMLOCK=infinity
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-### B. Enable and start:
+Enable and start:
 
 ```bash
 sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
-sudo systemctl enable llama-server
-sudo systemctl start llama-server
-sudo systemctl status llama-server
+sudo systemctl enable mistral
+sudo systemctl start mistral
+sudo systemctl status mistral
 ```
 
 ---
 
-## ✅ Summary
+## ✅ Final Summary
 
-| Feature                   | Enabled |
-| ------------------------- | ------- |
-| Mistral GGUF Q4 model     | ✅       |
-| aria2c fast download      | ✅       |
-| Renamed model file        | ✅       |
-| OpenBLAS optimization     | ✅       |
-| HTTP API (`llama-server`) | ✅       |
-| LangChain compatibility   | ✅       |
-| HTTPS via Nginx + Certbot | ✅       |
-| JWT-ready API layer       | ✅       |
-| systemd startup service   | ✅       |
+| Step                                   | Status |
+| -------------------------------------- | ------ |
+| System dependencies installed          | ✅      |
+| `llama.cpp` built with OpenBLAS        | ✅      |
+| Python venv (PEP 668-safe)             | ✅      |
+| `llama-cpp-python[server]` installed   | ✅      |
+| Mistral Q4 GGUF downloaded/renamed     | ✅      |
+| OpenAI-compatible API served           | ✅      |
+| Tested with curl & LangChain           | ✅      |
+| HTTPS (via Nginx + Certbot) (optional) | ✅      |
+| systemd service (optional)             | ✅      |
 
 ---
+
